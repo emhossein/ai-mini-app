@@ -5,9 +5,7 @@ import { getFirestore, Timestamp } from "firebase-admin/firestore";
 // Initialize Firebase Admin only once (handle Vercel hot reloads)
 // ——————————————————————————————————————————————————————————
 if (!admin.apps.length) {
-  const serviceAccount = JSON.parse(
-    process.env.FIREBASE_SERVICE_ACCOUNT || "{}",
-  );
+  const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
