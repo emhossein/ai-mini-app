@@ -43,7 +43,7 @@ export default async function handler(req, res) {
 
     // b) Call Gemini API (corrected)
     const endpoint =
-      "https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent";
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
     const apiKey = process.env.GEMINI_API_KEY;
 
     const aiPayload = {
