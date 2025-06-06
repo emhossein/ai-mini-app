@@ -1,12 +1,11 @@
 import admin from "firebase-admin";
 import { getFirestore, Timestamp } from "firebase-admin/firestore";
 
-// ——————————————————————————————————————————————————————————
-// Initialize Firebase Admin only once (handle Vercel hot reloads)
-// ——————————————————————————————————————————————————————————
+// Initialize Firebase Admin SDK once
 if (!admin.apps.length) {
-  const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-
+  const serviceAccount = JSON.parse(
+    process.env.FIREBASE_SERVICE_ACCOUNT || "{}",
+  );
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
   });
@@ -14,43 +13,36 @@ if (!admin.apps.length) {
 
 const firestore = getFirestore();
 
-// ——————————————————————————————————————————————————————————
-// Vercel function handler
-// ——————————————————————————————————————————————————————————
 export default async function handler(req, res) {
   if (req.method !== "POST") {
-    res.status(405).json({ error: "Method not allowed" });
-    return;
+    return res.status(405).json({ error: "Method not allowed" });
   }
 
   const { userId, messageText } = req.body;
   if (!userId || !messageText) {
-    res.status(400).json({ error: "Missing userId or messageText" });
-    return;
+    return res.status(400).json({ error: "Missing userId or messageText" });
   }
 
   try {
-    // a) Save user message to Firestore
-    const chatCol = firestore.collection("chat_messages");
-    const newDocRef = chatCol.doc();
-    await newDocRef.set({
+    // 1. Save user message initially to Firestore
+    const userMessagesCol = firestore.collection("user_messages");
+    const docRef = userMessagesCol.doc(); // Auto-ID
+
+    const initialData = {
       userId,
       messageText,
       timestamp: Timestamp.now(),
-    });
+    };
 
-    // b) Call Gemini API (corrected)
+    await docRef.set(initialData);
+
+    // 2. Call Gemini AI API
     const endpoint =
       "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
     const apiKey = process.env.GEMINI_API_KEY;
 
     const aiPayload = {
-      contents: [
-        {
-          role: "user",
-          parts: [{ text: messageText }],
-        },
-      ],
+      prompt: { text: messageText },
     };
 
     const aiFetch = await fetch(`${endpoint}?key=${apiKey}`, {
@@ -66,16 +58,15 @@ export default async function handler(req, res) {
 
     const aiData = await aiFetch.json();
     const responseText =
-      aiData?.candidates?.[0]?.content?.parts?.[0]?.text ||
-      "No response from AI";
+      aiData?.candidates?.[0]?.output || "No response from AI";
 
-    // c) Save AI response to Firestore
-    await newDocRef.update({
+    // 3. Update the same doc with AI response
+    await docRef.update({
       responseText,
       botTimestamp: Timestamp.now(),
     });
 
-    // d) Return AI response
+    // 4. Return AI response
     res.status(200).json({ responseText });
   } catch (error) {
     console.error("Error in ai-sync:", error);
