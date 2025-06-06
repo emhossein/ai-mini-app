@@ -1,6 +1,5 @@
 import { initializeApp, cert } from "firebase-admin/app";
 import { getFirestore, Timestamp } from "firebase-admin/firestore";
-import fetch from "node-fetch";
 
 // ——————————————————————————————————————————————————————————
 // 1) Initialize Firebase Admin using SERVICE ACCOUNT JSON pulled
