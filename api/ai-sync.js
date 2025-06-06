@@ -24,25 +24,27 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 1. Save user message initially to Firestore
+    // 1. Save user message to Firestore
     const userMessagesCol = firestore.collection("user_messages");
     const docRef = userMessagesCol.doc(); // Auto-ID
-
-    const initialData = {
+    await docRef.set({
       userId,
       messageText,
       timestamp: Timestamp.now(),
-    };
+    });
 
-    await docRef.set(initialData);
-
-    // 2. Call Gemini AI API
+    // 2. Call Gemini API (updated)
     const endpoint =
       "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
     const apiKey = process.env.GEMINI_API_KEY;
 
     const aiPayload = {
-      prompt: { text: messageText },
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: messageText }],
+        },
+      ],
     };
 
     const aiFetch = await fetch(`${endpoint}?key=${apiKey}`, {
@@ -58,15 +60,16 @@ export default async function handler(req, res) {
 
     const aiData = await aiFetch.json();
     const responseText =
-      aiData?.candidates?.[0]?.output || "No response from AI";
+      aiData?.candidates?.[0]?.content?.parts?.[0]?.text ||
+      "No response from AI";
 
-    // 3. Update the same doc with AI response
+    // 3. Update Firestore doc with AI response
     await docRef.update({
       responseText,
       botTimestamp: Timestamp.now(),
     });
 
-    // 4. Return AI response
+    // 4. Send response
     res.status(200).json({ responseText });
   } catch (error) {
     console.error("Error in ai-sync:", error);
