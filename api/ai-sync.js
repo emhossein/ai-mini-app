@@ -5,7 +5,6 @@ import { getFirestore, Timestamp } from "firebase-admin/firestore";
 // Initialize Firebase Admin only once (handle Vercel hot reloads)
 // ——————————————————————————————————————————————————————————
 if (!admin.apps.length) {
-  // Parse service account JSON from env var (set this in Vercel)
   const serviceAccount = JSON.parse(
     process.env.FIREBASE_SERVICE_ACCOUNT || "{}",
   );
@@ -15,7 +14,6 @@ if (!admin.apps.length) {
   });
 }
 
-// Firestore instance (can reuse safely after initialization)
 const firestore = getFirestore();
 
 // ——————————————————————————————————————————————————————————
@@ -43,13 +41,18 @@ export default async function handler(req, res) {
       timestamp: Timestamp.now(),
     });
 
-    // b) Call Gemini AI API
+    // b) Call Gemini API (corrected)
     const endpoint =
-      "https://generativelanguage.googleapis.com/v1beta2/models/text-bison-001:generateText";
+      "https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent";
     const apiKey = process.env.GEMINI_API_KEY;
 
     const aiPayload = {
-      prompt: { text: messageText },
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: messageText }],
+        },
+      ],
     };
 
     const aiFetch = await fetch(`${endpoint}?key=${apiKey}`, {
@@ -65,9 +68,10 @@ export default async function handler(req, res) {
 
     const aiData = await aiFetch.json();
     const responseText =
-      aiData?.candidates?.[0]?.output || "No response from AI";
+      aiData?.candidates?.[0]?.content?.parts?.[0]?.text ||
+      "No response from AI";
 
-    // c) Save AI response back to Firestore
+    // c) Save AI response to Firestore
     await newDocRef.update({
       responseText,
       botTimestamp: Timestamp.now(),
