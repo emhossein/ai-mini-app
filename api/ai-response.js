@@ -1,14 +1,12 @@
-import fetch from "node-fetch";
-
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     res.status(405).json({ error: "Method not allowed" });
     return;
   }
 
-  const { message } = req.body;
-  if (!message) {
-    res.status(400).json({ error: "Message is required" });
+  const { message, messageId } = req.body;
+  if (!message || !messageId) {
+    res.status(400).json({ error: "Message and messageId are required" });
     return;
   }
 
@@ -16,7 +14,6 @@ export default async function handler(req, res) {
     const apiKey = process.env.GEMINI_API_KEY;
     const endpoint =
       "https://generativelanguage.googleapis.com/v1beta2/models/text-bison-001:generateText";
-
     const body = { prompt: { text: message } };
 
     const response = await fetch(`${endpoint}?key=${apiKey}`, {
@@ -32,6 +29,10 @@ export default async function handler(req, res) {
 
     const data = await response.json();
     const aiResponse = data?.candidates?.[0]?.output || "No AI response";
+
+    // Save AI response back into Firestore, in the same document as original message
+    const messageRef = doc(db, "messages", messageId);
+    await setDoc(messageRef, { response_text: aiResponse }, { merge: true });
 
     res.status(200).json({ response: aiResponse });
   } catch (error) {
